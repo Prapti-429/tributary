@@ -1,0 +1,34 @@
+import redis
+from flask import Flask, jsonify
+
+# Initialize Flask app
+app = Flask(__name__)
+
+# Connect to Redis instance
+redis_client = redis.StrictRedis(host='redis', port=6379, db=0, decode_responses=True)
+
+# Define the /record endpoint
+@app.route('/record', methods=['POST'])
+def record_engine_temperature():
+    # Get the most recent temperature reading from Redis
+    recent_temperature = redis_client.lindex('engine_temperatures', 0)
+
+    # Get all stored temperatures to calculate the average
+    all_temperatures = redis_client.lrange('engine_temperatures', 0, -1)
+
+    # If there are readings, calculate the average
+    if all_temperatures:
+        total_temperature = sum(map(float, all_temperatures))
+        average_temperature = total_temperature / len(all_temperatures)
+    else:
+        average_temperature = None  # No readings yet
+
+    # Return the response with recent and average temperatures
+    response = {
+        "current_engine_temperature": recent_temperature,
+        "average_engine_temperature": average_temperature
+    }
+    return jsonify(response), 200
+
+if __name__ == '__main__':
+    app.run(debug=True, host='0.0.0.0', port=8000)
